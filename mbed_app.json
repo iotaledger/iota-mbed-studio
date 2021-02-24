@@ -1,0 +1,19 @@
+{
+    "target_overrides": {
+        "*": {
+            "platform.stdio-convert-newlines": true
+        },
+        "DISCO_L475VG_IOT01A": {
+            "target.components_add": ["wifi_ism43362"],
+            "ism43362.provide-default": true
+        },
+        "B_L4S5I_IOT01A": {
+            "target.components_add": ["wifi_ism43362"],
+            "ism43362.provide-default": true
+        },
+        "DISCO_F413ZH": {
+            "target.components_add": ["wifi_ism43362"],
+            "ism43362.provide-default": true
+        }
+    }
+}
