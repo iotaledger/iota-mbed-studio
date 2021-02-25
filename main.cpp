@@ -1,6 +1,5 @@
 #include "mbed.h"
 
-#include "hydrogen.h"
 #include "cJSON.h"
 #include "utarray.h"
 #include "blake2.h"
@@ -13,16 +12,6 @@ int main()
 #ifdef MBED_MAJOR_VERSION
     printf("Mbed OS version %d.%d.%d\n\n", MBED_MAJOR_VERSION, MBED_MINOR_VERSION, MBED_PATCH_VERSION);
 #endif
-
-    // test hydrogen
-    int ret = hydro_init();
-    char buf[100] = {};
-    printf("hydro_init : %d\n", ret);
-    hydro_random_buf(buf, sizeof(buf));
-    for(size_t i = 0; i < sizeof(buf); i++){
-        printf("%X", buf[i]);
-    }
-    printf("\n");
 
     // test cjson 
     cJSON *monitor = cJSON_CreateObject();
@@ -48,6 +37,8 @@ int main()
     utarray_free(nums);
 
     // test blake2b
+    int ret = 0;
+    char buf[100] = {};
     char blake2b_sum[32] = {};
     ret = blake2b(blake2b_sum, sizeof(blake2b_sum), buf, sizeof(buf), NULL, 0);
     printf("blake2 : %d\n", ret);
