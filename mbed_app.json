@@ -1,7 +1,18 @@
 {
+    "config": {
+        "wifi-ssid": {
+            "help": "WiFi SSID",
+            "value": "\"ssid\""
+        },
+        "wifi-password": {
+            "help": "WiFi Password",
+            "value": "\"pwd\""
+        }
+    },
     "target_overrides": {
         "*": {
-            "platform.stdio-convert-newlines": true
+            "platform.stdio-convert-newlines": true,
+            "target.printf_lib": "std"
         },
         "DISCO_L475VG_IOT01A": {
             "target.components_add": ["wifi_ism43362"],
