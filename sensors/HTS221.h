@@ -1,18 +1,28 @@
+// Copyright 2021 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * @author Sam Chen
+ * @brief HTS221 driver for Mbed OS
+ *
+ */
 
 #ifndef __HTS221_DRIVER_H__
 #define __HTS221_DRIVER_H__
 
 #include "I2C.h"
+#include <string>
 
 class HTS221 {
 public:
-  int init(mbed::I2C *i2c_dev);
+  int init(const mbed::I2C *i2c_dev);
   int getPowerStatus(bool *st);
-  int getTempture(float *value);
-  int getTemptureF(float *value);
+  int getTemperature(float *value);
+  int getTemperatureF(float *value);
   int getHumidity(float *value);
   int powerOn(bool st);
   int getID(uint8_t *id);
+  int toJSON(std::string &j_str);
   ~HTS221();
 
 private:

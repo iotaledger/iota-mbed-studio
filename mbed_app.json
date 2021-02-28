@@ -2,11 +2,11 @@
     "config": {
         "wifi-ssid": {
             "help": "WiFi SSID",
-            "value": "\"ssid\""
+            "value": "\"SamHome-G\""
         },
         "wifi-password": {
             "help": "WiFi Password",
-            "value": "\"pwd\""
+            "value": "\"dennis@249\""
         }
     },
     "target_overrides": {

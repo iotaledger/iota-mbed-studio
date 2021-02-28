@@ -1,3 +1,11 @@
+// Copyright 2021 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * @author Sam Chen
+ * @brief IOTA Client example with Mbed Studio
+ *
+ */
 #include "mbed.h"
 
 #include "blake2.h"
@@ -5,7 +13,9 @@
 #include "utarray.h"
 #include <chrono>
 
-#include "HTS221.h"
+#include "NTPClient.h"
+
+#include "sensorService.h"
 
 void test_cjson() {
   // test cjson
@@ -58,23 +68,55 @@ int main() {
   printf("Mbed OS version %d.%d.%d\n\n", MBED_MAJOR_VERSION, MBED_MINOR_VERSION,
          MBED_PATCH_VERSION);
 #endif
+  // init and connect to network
+  WiFiInterface *wifi = WiFiInterface::get_default_instance();
+  if (!wifi) {
+    printf("ERROR: No WiFiInterface found.\n");
+    return -1;
+  }
+
+  printf("\nConnecting to %s...\n", MBED_CONF_APP_WIFI_SSID);
+  int ret = wifi->connect(MBED_CONF_APP_WIFI_SSID, MBED_CONF_APP_WIFI_PASSWORD,
+                          NSAPI_SECURITY_WPA_WPA2);
+  if (ret != 0) {
+    printf("\nConnection error: %d\n", ret);
+    return -1;
+  }
+  SocketAddress a;
+  wifi->get_ip_address(&a);
+  printf("IP: %s\n", a.get_ip_address());
+
+  // ntp
+  NTPClient ntp(wifi);
+  ntp.set_server("pool.ntp.org", 123);
+  time_t timestamp = ntp.get_timestamp();
+  if (timestamp < 0) {
+    printf("An error occurred when getting the time. Code: %zu\n", timestamp);
+  } else {
+    set_time(timestamp);
+    time_t sysTime = time(NULL);
+    printf("NTP [%s], Sys [%s]\n", ctime(&timestamp), ctime(&sysTime));
+  }
+
   // internal I2C
   // NFC, 3-axix, 3D gyroscope, Barometer, Humi and Temp, STSAFE-A110
   I2C i2c(PB_11, PB_10); // internal I2C
 
-  HTS221 temp;
-  float temp_c = 0.0;
-  float humi = 0.0;
-  // init hts221 with internal I2C bus
-  temp.init(&i2c);
+  sensorService sensor;
+  if (sensor.init(&i2c, "sensor_1") != 0) {
+    printf("init sensor service failed\n");
+    return -1;
+  }
+
   // init onboard LED2
   DigitalOut led2(LED2);
 
   while (true) {
     taggle_led(led2);
     ThisThread::sleep_for(chrono::milliseconds(3000));
-    temp.getTempture(&temp_c);
-    temp.getHumidity(&humi);
-    printf("temp: %.2f, humi: %.2f\n", temp_c, humi);
+    printf("temp: %.2f, humi: %.2f\n", sensor.temperature(), sensor.humidity());
   }
+
+  //
+  wifi->disconnect();
 }

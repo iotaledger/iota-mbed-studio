@@ -1,3 +1,10 @@
+// Copyright 2021 IOTA Stiftung
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * @author Sam Chen
+ * @brief HTS221 driver for Mbed OS
+ */
 
 #include "HTS221.h"
 
@@ -41,10 +48,10 @@
 #define HTS221_T1_OUT_L 0x3E
 #define HTS221_T1_OUT_H 0x3F
 
-int HTS221::init(mbed::I2C *i2c_dev) {
+int HTS221::init(const mbed::I2C *i2c_dev) {
   int ret = 0;
   uint8_t dev_id = 0;
-  _i2c = i2c_dev;
+  _i2c = (mbed::I2C *)i2c_dev;
 
   if ((ret = getID(&dev_id)) != 0) {
     return ret;
@@ -99,10 +106,10 @@ int HTS221::getID(uint8_t *id) {
   return readReg(HTS221_WHO_AM_I_ADDR, (char *)id, 1);
 }
 
-int HTS221::getTemptureF(float *value) {
+int HTS221::getTemperatureF(float *value) {
   int ret = 0;
   float temp = 0.0;
-  if ((ret = getTempture(&temp)) != 0) {
+  if ((ret = getTemperature(&temp)) != 0) {
     return ret;
   }
   // Fahrenheit = (Celsius * 9 / 5) + 32
@@ -110,7 +117,7 @@ int HTS221::getTemptureF(float *value) {
   return ret;
 }
 
-int HTS221::getTempture(float *value) {
+int HTS221::getTemperature(float *value) {
   int ret = 0;
   uint16_t T_out;
   // get T_out
@@ -235,6 +242,11 @@ int HTS221::getCoefficients() {
   return ret;
 }
 
+int HTS221::toJSON(std::string &j_str) {
+  int ret = 0;
+
+  return NULL;
+}
 HTS221::~HTS221() {
   // trun off sensor
   powerOn(false);
