@@ -6,7 +6,24 @@
  * @brief sensor service for getting sensor data
  */
 
+#include <memory>
+#include <string>
+
 #include "sensorService.h"
+
+// https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprintf
+template <typename... Args>
+std::string string_format(const std::string &format, Args... args) {
+  int size =
+      snprintf(nullptr, 0, format.c_str(), args...) + 1; // Extra space for '\0'
+  if (size <= 0) {
+    return "";
+  }
+  std::unique_ptr<char[]> buf(new char[size]);
+  snprintf(buf.get(), size, format.c_str(), args...);
+  return std::string(buf.get(),
+                     buf.get() + size - 1); // We don't want the '\0' inside
+}
 
 int sensorService::init(const mbed::I2C *i2c, const std::string &id) {
   _ID = id;
@@ -25,7 +42,7 @@ float sensorService::humidity() {
   return humi;
 }
 
-int sensorService::toJSON(std::string &json_str) {
+std::string sensorService::toJSON() {
   /*
   {
     "ID": "IOTA-Sensor-001",
@@ -34,5 +51,8 @@ int sensorService::toJSON(std::string &json_str) {
     "humi": 30.1
   }
   */
-  return 0;
+  time_t timestampe = time(NULL);
+  return string_format(
+      "{\"ID\":\"%s\",\"time\":%zu,\"temp\":%.2f,\"humi\":%.2f}",
+      _ID.c_str(), timestampe, temperature(), humidity());
 }

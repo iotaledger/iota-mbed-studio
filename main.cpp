@@ -103,7 +103,7 @@ int main() {
   I2C i2c(PB_11, PB_10); // internal I2C
 
   sensorService sensor;
-  if (sensor.init(&i2c, "sensor_1") != 0) {
+  if (sensor.init(&i2c, "B-L4S5I-IOT01A") != 0) {
     printf("init sensor service failed\n");
     return -1;
   }
@@ -113,8 +113,11 @@ int main() {
 
   while (true) {
     taggle_led(led2);
-    ThisThread::sleep_for(chrono::milliseconds(3000));
-    printf("temp: %.2f, humi: %.2f\n", sensor.temperature(), sensor.humidity());
+    // ThisThread::sleep_for(chrono::milliseconds(10000));
+    ThisThread::sleep_for(chrono::milliseconds(MBED_CONF_APP_DATA_INTERVAL));
+    // printf("temp: %.2f, humi: %.2f\n", sensor.temperature(),
+    // sensor.humidity());
+    printf("%s\n", sensor.toJSON().c_str());
   }
 
   //

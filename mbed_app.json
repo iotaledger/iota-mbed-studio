@@ -7,6 +7,10 @@
         "wifi-password": {
             "help": "WiFi Password",
             "value": "\"dennis@249\""
+        },
+        "data-interval": {
+            "help": "Data sampling interval in ms",
+            "value": "10000"
         }
     },
     "target_overrides": {

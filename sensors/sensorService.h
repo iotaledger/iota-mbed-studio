@@ -18,7 +18,7 @@
 class sensorService {
 public:
   int init(const mbed::I2C *i2c, const std::string &id);
-  int toJSON(std::string &json_str);
+  std::string toJSON();
   float temperature();
   float humidity();
 
