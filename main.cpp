@@ -8,55 +8,45 @@
  */
 #include "mbed-trace/mbed_trace.h"
 #include "mbed.h"
-
-#include "blake2.h"
-#include "cJSON.h"
-#include "utarray.h"
 #include <chrono>
 
 #include "NTPClient.h"
-
+#include "clientpp/iotaAPI.h"
 #include "httpClient.h"
+#include "jsonUtils.h"
+#include "main_config.h"
 #include "sensorService.h"
 
-#define WIFI_SSID MBED_CONF_APP_WIFI_SSID
-#define WIFI_PWD MBED_CONF_APP_WIFI_PASSWORD
-#define WIFI_SECURITY MBED_CONF_APP_WIFI_SECURITY
-#define SENSOR_DATA_INTERVAL MBED_CONF_APP_DATA_INTERVAL
+// #define _TEST_IOTA_MSG_
 
 void test_http() {
   httpClient client;
   int ret = client.get("/api/v1/info");
   printf("%d, %s\n", ret, client.response_data().c_str());
 }
-void test_cjson() {
-  // test cjson
-  cJSON *monitor = cJSON_CreateObject();
-  if (monitor == NULL) {
-    printf("cjson create object failed\n");
-  } else {
-    cJSON_free(monitor);
-    printf("create and free cjson object done\n");
-  }
-}
 
-void test_utarray() {
-  // test utarray
-  UT_array *nums;
-  int i, *p;
-  utarray_new(nums, &ut_int_icd);
-  for (i = 0; i < 10; i++)
-    utarray_push_back(nums, &i);
+void test_json() {
+  char const *const json_tips =
+      "{\"index\":\"Foo\",\"maxResults\":1000,\"isBool\":true,\"arr\":["
+      "\"this\",\"is\",\"a\",\"string\",\"array\"]}";
+  jsonUtils json;
+  string data;
+  bool b;
+  vector<string> arr;
 
-  for (p = (int *)utarray_front(nums); p != NULL;
-       p = (int *)utarray_next(nums, p)) {
-    printf("%d", *p);
+  cJSON *obj = cJSON_Parse(json_tips);
+  printf("%s\n", cJSON_PrintUnformatted(obj));
+  json.getString(obj, "index", data);
+  json.getBool(obj, "isBool", &b);
+  json.getArrayString(obj, "arr", arr);
+  printf("index = %s, bool = %d\n", data.c_str(), b);
+  for (auto i : arr) {
+    printf("%s ", i.c_str());
   }
   printf("\n");
-  utarray_free(nums);
-}
 
-// #define _TEST_IOTA_MSG_
+  cJSON_Delete(obj);
+}
 
 #ifdef _TEST_IOTA_MSG_
 #include "core/models/message.h"
@@ -100,25 +90,11 @@ void test_iota_message() {
 }
 #endif
 
-void test_blake2b() {
-  // test blake2b
-  int ret = 0;
-  char buf[100] = {};
-
-  char blake2b_sum[32] = {};
-  ret = blake2b(blake2b_sum, sizeof(blake2b_sum), buf, sizeof(buf), NULL, 0);
-  printf("blake2 : %d\n", ret);
-  for (size_t i = 0; i < sizeof(blake2b_sum); i++) {
-    printf("%02X ", buf[i]);
-  }
-  printf("\n");
-}
-
 void taggle_led(DigitalOut led) { led.write(!led.read()); }
 
 // main() runs in its own thread in the OS
 int main() {
-  printf("IOTA example\n");
+  printf("IOTA example on B-L4S5I-IOT01A\n");
 
 #ifdef MBED_MAJOR_VERSION
   printf("Mbed OS version %d.%d.%d\n\n", MBED_MAJOR_VERSION, MBED_MINOR_VERSION,
@@ -141,9 +117,10 @@ int main() {
     return -1;
   }
 
-  SocketAddress a;
-  wifi->get_ip_address(&a);
-  printf("IP: %s\n", a.get_ip_address());
+  // display IP address
+  // SocketAddress a;
+  // wifi->get_ip_address(&a);
+  // printf("IP: %s\n", a.get_ip_address());
 
   // ntp
   NTPClient ntp(wifi);
@@ -154,7 +131,7 @@ int main() {
   } else {
     set_time(timestamp);
     time_t sysTime = time(NULL);
-    printf("NTP [%s], Sys [%s]\n", ctime(&timestamp), ctime(&sysTime));
+    // printf("NTP [%s], Sys [%s]\n", ctime(&timestamp), ctime(&sysTime));
   }
 
   // internal I2C
@@ -170,15 +147,16 @@ int main() {
 #ifdef _TEST_IOTA_MSG_
   test_iota_message();
 #endif
+  iotaAPI iota;
+  string msg_id;
+
   // init onboard LED2
   DigitalOut led2(LED2);
 
   while (true) {
     taggle_led(led2);
-    // ThisThread::sleep_for(chrono::milliseconds(10000));
     ThisThread::sleep_for(chrono::milliseconds(SENSOR_DATA_INTERVAL));
-    // printf("temp: %.2f, humi: %.2f\n", sensor.temperature(),
-    // sensor.humidity());
     printf("%s\n", sensor.toJSON().c_str());
+    iota.sendIndexation("iota_sensor", sensor.toJSON(), msg_id);
   }
 }

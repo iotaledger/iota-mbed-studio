@@ -11,14 +11,14 @@
 #define __HTTP_CLIENT_H__
 
 #include "llhttp.h"
+#include "main_config.h"
 #include "mbed.h"
 #include <string>
-
-#define HTTP_BUF_SIZE MBED_CONF_APP_HTTP_BUF
 
 typedef struct {
   string buffer;            // data buffer
   uint64_t content_length;  // content_length
+  uint64_t processed_data;  // processed data bytes
   unsigned int status_code; // http status code
 } http_data_t;
 
@@ -42,9 +42,8 @@ public:
     parser_setting.on_headers_complete = on_headers_complete;
     parser_setting.on_body = on_body;
     llhttp_init(&http_parser, HTTP_RESPONSE, &parser_setting);
+    _tls = NULL;
   };
-  ~httpClient();
-  int connect();
   int post(const string &path, const string &data);
   int get(const string &path);
   int response_status_code();
@@ -74,7 +73,7 @@ private:
   char recv_buf[HTTP_BUF_SIZE];
 
   WiFiInterface *_wifi;
-  TLSSocket _tls;
+  TLSSocket *_tls;
 };
 
 #endif

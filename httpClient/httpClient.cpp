@@ -10,8 +10,6 @@
 #include "httpClient.h"
 #include "root_ca_cert.h"
 
-#define IOTA_NODE_HOST MBED_CONF_APP_HOST
-#define IOTA_NODE_PORT MBED_CONF_APP_PORT
 // #define HTTP_DEBUG
 
 http_data_t httpClient::response;
@@ -22,41 +20,42 @@ int httpClient::on_message_begin(llhttp_t *parser) { return 0; }
 int httpClient::on_headers_complete(llhttp_t *parser) {
   response.status_code = parser->status_code;
   response.content_length = parser->content_length;
+  response.processed_data = 0;
   http_st = HTTP_ST_RES_HEADER_COMPLETE;
   return 0;
 }
 
 int httpClient::on_body(llhttp_t *parser, char const *at, size_t length) {
   response.buffer.append(at, length);
+  response.processed_data += length;
   return 0;
-}
-
-httpClient::~httpClient() {
-  if (_wifi) {
-    _wifi->disconnect();
-  }
 }
 
 int httpClient::socket_prepare() {
   nsapi_size_or_error_t ret = 0;
 
+  _wifi = WiFiInterface::get_default_instance();
+  if (!_wifi) {
+    printf("unable to get wifi interface\n");
+    return -1;
+  }
+
   // socket open
-  if ((ret = _tls.open(_wifi)) != NSAPI_ERROR_OK) {
+  if ((ret = _tls->open(_wifi)) != NSAPI_ERROR_OK) {
     printf("TLS socket open failed: %d\n", ret);
     return ret;
   }
 
   // set root ca
-  if ((ret = _tls.set_root_ca_cert(root_ca_pem)) != NSAPI_ERROR_OK) {
+  if ((ret = _tls->set_root_ca_cert(root_ca_pem)) != NSAPI_ERROR_OK) {
     printf("TLS set CA failed: %d\n", ret);
     return ret;
   }
-  _tls.set_hostname(IOTA_NODE_HOST);
+  _tls->set_hostname(IOTA_NODE_HOST);
 
   SocketAddress addr;
   // hostname
-  if ((ret = _wifi->gethostbyname(IOTA_NODE_HOST, &addr)) !=
-      NSAPI_ERROR_OK) {
+  if ((ret = _wifi->gethostbyname(IOTA_NODE_HOST, &addr)) != NSAPI_ERROR_OK) {
     printf("get address by hostname failed: %d\n", ret);
     return ret;
   }
@@ -69,10 +68,10 @@ int httpClient::socket_prepare() {
   addr.set_port(IOTA_NODE_PORT);
 
   // overwrite ssl veryfy to optional
-  mbedtls_ssl_config *ssl_conf = _tls.get_ssl_config();
+  mbedtls_ssl_config *ssl_conf = _tls->get_ssl_config();
   ssl_conf->authmode = MBEDTLS_SSL_VERIFY_OPTIONAL;
 
-  if ((ret = _tls.connect(addr)) != NSAPI_ERROR_OK) {
+  if ((ret = _tls->connect(addr)) != NSAPI_ERROR_OK) {
     printf("TLS socket connect failed: %d\n", ret);
     return ret;
   }
@@ -81,11 +80,13 @@ int httpClient::socket_prepare() {
   response.buffer.clear();
   response.content_length = 0;
   response.status_code = 0;
+  response.processed_data = 0;
 
   // request buffer init
-  response.buffer.clear();
-  response.content_length = 0;
-  response.status_code = 0;
+  request.buffer.clear();
+  request.content_length = 0;
+  request.status_code = 0;
+  request.processed_data = 0;
 
   http_st = HTTP_ST_INIT;
   return ret;
@@ -110,7 +111,7 @@ int httpClient::send_header(llhttp_method_t method, const string &path,
   header.append(to_string(data_len));
   header.append("\r\n\r\n");
   int sent_bytes = 0;
-  sent_bytes = _tls.send(header.c_str(), header.length());
+  sent_bytes = _tls->send(header.c_str(), header.length());
   http_st = HTTP_ST_REQ_HEADER_COMPLETE;
 #ifdef HTTP_DEBUG
   printf("header: \n%s\n", header.c_str());
@@ -126,7 +127,7 @@ int httpClient::send_data(const string &data) {
   }
   nsapi_size_or_error_t bytes_sent = 0;
   while (send_bytes) {
-    bytes_sent = _tls.send(data.c_str() + bytes_sent, send_bytes);
+    bytes_sent = _tls->send(data.c_str() + bytes_sent, send_bytes);
 
     if (bytes_sent < 0) {
       printf("socket send error: %d\n", bytes_sent);
@@ -153,7 +154,7 @@ int httpClient::fetch_response_header() {
 
   nsapi_size_or_error_t bytes_or_err = 0;
   while (http_st < HTTP_ST_RES_HEADER_COMPLETE) {
-    bytes_or_err = _tls.recv(recv_buf, HTTP_BUF_SIZE);
+    bytes_or_err = _tls->recv(recv_buf, HTTP_BUF_SIZE);
     if (bytes_or_err < 0) {
       printf("Error: socket recv: %d\n", bytes_or_err);
       return -1;
@@ -174,7 +175,7 @@ int httpClient::fetch_response_data() {
     printf("fetch response status error!\n");
     return -1;
   }
-  nsapi_size_or_error_t bytes_or_err = _tls.recv(recv_buf, HTTP_BUF_SIZE);
+  nsapi_size_or_error_t bytes_or_err = _tls->recv(recv_buf, HTTP_BUF_SIZE);
   if (bytes_or_err >= 0) {
     llhttp_execute(&http_parser, recv_buf, bytes_or_err);
   }
@@ -185,6 +186,13 @@ int httpClient::socket_send(llhttp_method_t method, const string &path,
                             const string &data) {
   int ret = 0;
   http_st = HTTP_ST_UNINIT;
+  if (!_tls) {
+    _tls = new TLSSocket();
+    if (!_tls) {
+      printf("new socket failed\n");
+      return -1;
+    }
+  }
 
   switch (http_st) {
   case HTTP_ST_UNINIT:
@@ -209,13 +217,15 @@ int httpClient::socket_send(llhttp_method_t method, const string &path,
       goto done;
     }
   case HTTP_ST_RES_HEADER_COMPLETE:
-    if (response.status_code != 200) {
+    if (response.status_code < 200 || response.status_code >= 300) {
       printf("Error: http status code %d\n", response.status_code);
       goto done;
     }
-    while (fetch_response_data() <= 0) {
-      printf("no data or server requests close");
-      break;
+    while (response.processed_data < response.content_length) {
+      if (fetch_response_data() <= 0) {
+        printf("no data or server requests close");
+        break;
+      }
     }
     break;
   default:
@@ -223,7 +233,9 @@ int httpClient::socket_send(llhttp_method_t method, const string &path,
   }
 
 done:
-  _tls.close();
+  _tls->close();
+  delete _tls;
+  _tls = NULL;
   return ret;
 }
 
