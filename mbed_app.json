@@ -2,11 +2,27 @@
     "config": {
         "wifi-ssid": {
             "help": "WiFi SSID",
-            "value": "\"SamHome-G\""
+            "value": "\"SSID\""
         },
         "wifi-password": {
             "help": "WiFi Password",
-            "value": "\"dennis@249\""
+            "value": "\"PWD\""
+        },
+        "wifi-security": {
+            "help": "Options are NSAPI_SECURITY_WEP, NSAPI_SECURITY_WPA, NSAPI_SECURITY_WPA2, NSAPI_SECURITY_WPA_WPA2",
+            "value": "NSAPI_SECURITY_WPA_WPA2"
+        },
+        "host": {
+            "help": "IOTA node hostname",
+            "value": "\"api.lb-0.testnet.chrysalis2.com\""
+        },
+        "port":{
+            "help": "IOTA Client API port number",
+            "value": "443"
+        },
+        "http_buf":{
+            "help": "HTTP Client buffer size",
+            "value": "1024"
         },
         "data-interval": {
             "help": "Data sampling interval in ms",
@@ -16,7 +32,9 @@
     "target_overrides": {
         "*": {
             "platform.stdio-convert-newlines": true,
-            "target.printf_lib": "std"
+            "target.printf_lib": "std",
+            "mbed-trace.enable": 0,
+            "rtos.main-thread-stack-size": "10240"
         },
         "DISCO_L475VG_IOT01A": {
             "target.components_add": ["wifi_ism43362"],

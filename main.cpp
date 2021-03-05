@@ -6,6 +6,7 @@
  * @brief IOTA Client example with Mbed Studio
  *
  */
+#include "mbed-trace/mbed_trace.h"
 #include "mbed.h"
 
 #include "blake2.h"
@@ -15,8 +16,19 @@
 
 #include "NTPClient.h"
 
+#include "httpClient.h"
 #include "sensorService.h"
 
+#define WIFI_SSID MBED_CONF_APP_WIFI_SSID
+#define WIFI_PWD MBED_CONF_APP_WIFI_PASSWORD
+#define WIFI_SECURITY MBED_CONF_APP_WIFI_SECURITY
+#define SENSOR_DATA_INTERVAL MBED_CONF_APP_DATA_INTERVAL
+
+void test_http() {
+  httpClient client;
+  int ret = client.get("/api/v1/info");
+  printf("%d, %s\n", ret, client.response_data().c_str());
+}
 void test_cjson() {
   // test cjson
   cJSON *monitor = cJSON_CreateObject();
@@ -112,20 +124,23 @@ int main() {
   printf("Mbed OS version %d.%d.%d\n\n", MBED_MAJOR_VERSION, MBED_MINOR_VERSION,
          MBED_PATCH_VERSION);
 #endif
-  // init and connect to network
+
+#ifdef MBED_CONF_MBED_TRACE_ENABLE
+  mbed_trace_init();
+#endif
+
+  // connect to wifi AP
   WiFiInterface *wifi = WiFiInterface::get_default_instance();
   if (!wifi) {
-    printf("ERROR: No WiFiInterface found.\n");
+    printf("cannot get wifi interface\n");
+    return -1;
+  }
+  nsapi_error_t net_err = wifi->connect(WIFI_SSID, WIFI_PWD, WIFI_SECURITY);
+  if (net_err != NSAPI_ERROR_OK) {
+    printf("connecting to wifi failed\n");
     return -1;
   }
 
-  printf("\nConnecting to %s...\n", MBED_CONF_APP_WIFI_SSID);
-  int ret = wifi->connect(MBED_CONF_APP_WIFI_SSID, MBED_CONF_APP_WIFI_PASSWORD,
-                          NSAPI_SECURITY_WPA_WPA2);
-  if (ret != 0) {
-    printf("\nConnection error: %d\n", ret);
-    return -1;
-  }
   SocketAddress a;
   wifi->get_ip_address(&a);
   printf("IP: %s\n", a.get_ip_address());
@@ -155,19 +170,15 @@ int main() {
 #ifdef _TEST_IOTA_MSG_
   test_iota_message();
 #endif
-
   // init onboard LED2
   DigitalOut led2(LED2);
 
   while (true) {
     taggle_led(led2);
     // ThisThread::sleep_for(chrono::milliseconds(10000));
-    ThisThread::sleep_for(chrono::milliseconds(MBED_CONF_APP_DATA_INTERVAL));
+    ThisThread::sleep_for(chrono::milliseconds(SENSOR_DATA_INTERVAL));
     // printf("temp: %.2f, humi: %.2f\n", sensor.temperature(),
     // sensor.humidity());
     printf("%s\n", sensor.toJSON().c_str());
   }
-
-  //
-  wifi->disconnect();
 }
