@@ -6,24 +6,20 @@
  * @brief IOTA Client example with Mbed Studio
  *
  */
+
+#if !MBED_TEST_MODE
+
 #include "mbed-trace/mbed_trace.h"
 #include "mbed.h"
 #include <chrono>
 
 #include "NTPClient.h"
 #include "clientpp/iotaAPI.h"
-#include "httpClient.h"
 #include "jsonUtils.h"
 #include "main_config.h"
 #include "sensorService.h"
 
 // #define _TEST_IOTA_MSG_
-
-void test_http() {
-  httpClient client;
-  int ret = client.get("/api/v1/info");
-  printf("%d, %s\n", ret, client.response_data().c_str());
-}
 
 void test_json() {
   char const *const json_tips =
@@ -160,3 +156,5 @@ int main() {
     ThisThread::sleep_for(chrono::milliseconds(SENSOR_DATA_INTERVAL));
   }
 }
+
+#endif

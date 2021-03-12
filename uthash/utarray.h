@@ -230,7 +230,9 @@ typedef struct {
 #define utarray_back(a) (((a)->i) ? (_utarray_eltptr(a,(a)->i-1)) : NULL)
 #define utarray_eltidx(a,e) (((char*)(e) - (a)->d) / (a)->icd.sz)
 
-// TODO: strdup is not a standard API
+// strdup is not a standard API
+#ifdef _XOPEN_SOURCE >= 500 || /* Since glibc 2.12: */ _POSIX_C_SOURCE >= 200809L \
+  || /* Glibc versions <= 2.19: */ _BSD_SOURCE || _SVID_SOURCE
 static char* strdup(const char* s)
 {
   size_t slen = strlen(s);
@@ -242,6 +244,7 @@ static char* strdup(const char* s)
   memcpy(result, s, slen+1);
   return result;
 }
+#endif
 
 /* last we pre-define a few icd for common utarrays of ints and strings */
 static void utarray_str_cpy(void *dst, const void *src) {
