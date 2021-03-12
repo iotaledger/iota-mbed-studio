@@ -155,8 +155,8 @@ int main() {
 
   while (true) {
     taggle_led(led2);
-    ThisThread::sleep_for(chrono::milliseconds(SENSOR_DATA_INTERVAL));
     printf("%s\n", sensor.toJSON().c_str());
     iota.sendIndexation("iota_sensor", sensor.toJSON(), msg_id);
+    ThisThread::sleep_for(chrono::milliseconds(SENSOR_DATA_INTERVAL));
   }
 }
