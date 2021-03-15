@@ -29,6 +29,10 @@
             "value": "10000"
         }
     },
+    "macros": [
+        "ED25519_CUSTOMRANDOM",
+        "ED25519_CUSTOMHASH"
+    ],
     "target_overrides": {
         "*": {
             "platform.stdio-convert-newlines": true,
