@@ -12,6 +12,8 @@
 
 #include "blake2b_data.h"
 #include "core/address.h"
+#include "core/models/message.h"
+#include "core/models/payloads/transaction.h"
 #include "core/utils/byte_buffer.h"
 #include "crypto/iota_crypto.h"
 #include "httpClient.h"
@@ -181,6 +183,106 @@ static control_t test_addr_gen(const size_t call_count) {
   return CaseNext;
 }
 
+static control_t tx_essence_serialization(const size_t call_count) {
+  byte_t exp_essence_byte[128] = {
+      0x0,  0x1,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+      0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+      0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+      0x0,  0x0,  0x2,  0x0,  0x0,  0x0,  0x51, 0x55, 0x82, 0xFE, 0x64, 0x8B,
+      0xF,  0x10, 0xA2, 0xB2, 0xA1, 0xB9, 0x1D, 0x75, 0x2,  0x19, 0xC,  0x97,
+      0x9B, 0xAA, 0xBF, 0xEE, 0x85, 0xB6, 0xBB, 0xB5, 0x2,  0x6,  0x92, 0xE5,
+      0x5D, 0x16, 0xE8, 0x3,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+      0x69, 0x20, 0xB1, 0x76, 0xF6, 0x13, 0xEC, 0x7B, 0xE5, 0x9E, 0x68, 0xFC,
+      0x68, 0xF5, 0x97, 0xEB, 0x33, 0x93, 0xAF, 0x80, 0xF7, 0x4C, 0x7C, 0x3D,
+      0xB7, 0x81, 0x98, 0x14, 0x7D, 0x5F, 0x1F, 0x92, 0xD9, 0x59, 0x2D, 0xD3,
+      0xF7, 0xDF, 0x9,  0x0,  0x0,  0x0,  0x0,  0x0};
+  static byte_t addr_a[ED25519_ADDRESS_BYTES] = {
+      0x51, 0x55, 0x82, 0xfe, 0x64, 0x8b, 0x0f, 0x10, 0xa2, 0xb2, 0xa1,
+      0xb9, 0x1d, 0x75, 0x02, 0x19, 0x0c, 0x97, 0x9b, 0xaa, 0xbf, 0xee,
+      0x85, 0xb6, 0xbb, 0xb5, 0x02, 0x06, 0x92, 0xe5, 0x5d, 0x16};
+  static byte_t addr_b[ED25519_ADDRESS_BYTES] = {
+      0x69, 0x20, 0xb1, 0x76, 0xf6, 0x13, 0xec, 0x7b, 0xe5, 0x9e, 0x68,
+      0xfc, 0x68, 0xf5, 0x97, 0xeb, 0x33, 0x93, 0xaf, 0x80, 0xf7, 0x4c,
+      0x7c, 0x3d, 0xb7, 0x81, 0x98, 0x14, 0x7d, 0x5f, 0x1f, 0x92};
+  static byte_t tx_id_empty[TRANSACTION_ID_BYTES] = {};
+
+  transaction_essence_t *essence = tx_essence_new();
+  TEST_ASSERT_NOT_NULL(essence);
+  TEST_ASSERT(tx_essence_serialize_length(essence) == 0);
+
+  // add inputs
+  TEST_ASSERT(tx_essence_add_input(essence, tx_id_empty, 0) == 0);
+  TEST_ASSERT_EQUAL_UINT32(1, utxo_inputs_count(&essence->inputs));
+
+  // add outputs
+  TEST_ASSERT(
+      tx_essence_add_output(essence, OUTPUT_SINGLE_OUTPUT, addr_a, 1000) == 0);
+  TEST_ASSERT(tx_essence_add_output(essence, OUTPUT_SINGLE_OUTPUT, addr_b,
+                                    2779530283276761) == 0);
+  TEST_ASSERT_EQUAL_UINT32(2, utxo_outputs_count(&essence->outputs));
+
+  // get serialized length
+  size_t essence_buf_len = tx_essence_serialize_length(essence);
+  TEST_ASSERT(essence_buf_len != 0);
+
+  byte_t *essence_buf = (byte_t *)malloc(essence_buf_len);
+  TEST_ASSERT_NOT_NULL(essence_buf);
+  TEST_ASSERT(tx_essence_serialize(essence, essence_buf) == essence_buf_len);
+  // dump_hex(essence_buf, essence_buf_len);
+  TEST_ASSERT_EQUAL_MEMORY(exp_essence_byte, essence_buf,
+                           sizeof(exp_essence_byte));
+  free(essence_buf);
+  tx_essence_free(essence);
+  return CaseNext;
+}
+
+static control_t message_with_tx(const size_t call_count) {
+  byte_t tx_id0[TRANSACTION_ID_BYTES] = {};
+  byte_t addr0[ED25519_ADDRESS_BYTES] = {
+      0x51, 0x55, 0x82, 0xfe, 0x64, 0x8b, 0x0f, 0x10, 0xa2, 0xb2, 0xa1,
+      0xb9, 0x1d, 0x75, 0x02, 0x19, 0x0c, 0x97, 0x9b, 0xaa, 0xbf, 0xee,
+      0x85, 0xb6, 0xbb, 0xb5, 0x02, 0x06, 0x92, 0xe5, 0x5d, 0x16};
+  byte_t addr1[ED25519_ADDRESS_BYTES] = {
+      0x69, 0x20, 0xb1, 0x76, 0xf6, 0x13, 0xec, 0x7b, 0xe5, 0x9e, 0x68,
+      0xfc, 0x68, 0xf5, 0x97, 0xeb, 0x33, 0x93, 0xaf, 0x80, 0xf7, 0x4c,
+      0x7c, 0x3d, 0xb7, 0x81, 0x98, 0x14, 0x7d, 0x5f, 0x1f, 0x92};
+
+  iota_keypair_t seed_keypair = {};
+  TEST_ASSERT(
+      hex2bin(
+          "f7868ab6bb55800b77b8b74191ad8285a9bf428ace579d541fda47661803ff44",
+          64, seed_keypair.pub, ED_PUBLIC_KEY_BYTES) == 0);
+  TEST_ASSERT(hex2bin("256a818b2aac458941f7274985a410e57fb750f3a3a67969ece5bd9a"
+                      "e7eef5b2f7868ab6bb55800b77b8b74191ad8285"
+                      "a9bf428ace579d541fda47661803ff44",
+                      128, seed_keypair.priv, ED_PRIVATE_KEY_BYTES) == 0);
+
+  core_message_t *msg = core_message_new();
+  TEST_ASSERT_NOT_NULL(msg);
+
+  transaction_payload_t *tx = tx_payload_new();
+  TEST_ASSERT_NOT_NULL(tx);
+
+  TEST_ASSERT(tx_payload_add_input_with_key(tx, tx_id0, 0, seed_keypair.pub,
+                                            seed_keypair.priv) == 0);
+  TEST_ASSERT(tx_payload_add_output(tx, OUTPUT_SINGLE_OUTPUT, addr0, 1000) ==
+              0);
+  TEST_ASSERT(tx_payload_add_output(tx, OUTPUT_SINGLE_OUTPUT, addr1,
+                                    2779530283276761) == 0);
+
+  // put tx payload into message
+  msg->payload_type = 0;
+  msg->payload = tx;
+
+  TEST_ASSERT(core_message_sign_transaction(msg) == 0);
+
+  // tx_payload_print(tx);
+
+  // free message and sub entities
+  core_message_free(msg);
+  return CaseNext;
+}
+
 utest::v1::status_t greentea_setup(const size_t number_of_cases) {
   // Here, we specify the timeout (60s) and the host test (a built-in host test
   // or the name of our Python file)
@@ -190,9 +292,12 @@ utest::v1::status_t greentea_setup(const size_t number_of_cases) {
 }
 
 // List of test cases in this file
-Case cases[] = {
-    Case("HTTP Client", test_http_client), Case("IOTA Address", test_addr_gen),
-    Case("BLAKE2", test_blake2b_hash), Case("HMAC SHA", test_hmacsha)};
+Case cases[] = {Case("HTTP Client", test_http_client),
+                Case("IOTA Address", test_addr_gen),
+                Case("IOTA TX Essence", tx_essence_serialization),
+                Case("IOTA Message", message_with_tx),
+                Case("BLAKE2", test_blake2b_hash),
+                Case("HMAC SHA", test_hmacsha)};
 
 Specification specification(greentea_setup, cases);
 
